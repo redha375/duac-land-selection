@@ -1,1 +1,12 @@
-const CACHE='duac-parcel-static-v1';const FILES=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(u.hostname.includes('tile.openstreetmap.org'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(x=>{if(x.ok&&u.origin===location.origin){let c=x.clone();caches.open(CACHE).then(cache=>cache.put(e.request,c))}return x}).catch(()=>caches.match('./index.html'))))});
+const CACHE='taamir-static-v2';
+const FILES=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./assets/taamir-logo.jpg','./assets/icon-192.png','./assets/icon-512.png','./vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES))));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('duac-parcel-static-'))await caches.delete(key);await self.clients.claim()})()));
+self.addEventListener('fetch',event=>{
+  const url=new URL(event.request.url);
+  if(url.hostname.includes('tile.openstreetmap.org')) return;
+  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+    if(response.ok&&url.origin===location.origin)caches.open(CACHE).then(cache=>cache.put(event.request,response.clone()));
+    return response;
+  }).catch(()=>caches.match('./index.html'))));
+});
