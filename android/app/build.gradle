@@ -1,13 +1,52 @@
 plugins { id 'com.android.application' }
 
+// These values are supplied by release CI from the checked-out immutable tag.
+def releaseVersion = '2.3.0-field-blank-beta'
+def buildCommit = providers.gradleProperty('sourceCommit').orElse(providers.environmentVariable('GITHUB_SHA').orElse('local-unverified')).get()
+def releaseTag = providers.gradleProperty('releaseTag').orElse(providers.environmentVariable('GITHUB_REF_NAME').orElse('local-unreleased')).get()
+def buildInfoDir = layout.buildDirectory.dir('generated/sourceInfo/assets')
+
 android {
     namespace 'dz.medea.parcel'
     compileSdk 35
     defaultConfig {
-        applicationId 'dz.medea.parcel'
+        // New side-by-side beta package avoids replacing the historical 2.2.0 APK.
+        applicationId 'dz.medea.parcel.fieldbeta230'
         minSdk 23
         targetSdk 35
-        versionCode 2
-        versionName '0.1.1'
+        versionCode 3
+        versionName releaseVersion
+    }
+    sourceSets.main.assets.srcDir(buildInfoDir)
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Test prerelease only; this is not a production signing identity.
+            signingConfig signingConfigs.debug
+        }
     }
 }
+
+tasks.register('generateBuildInfo') {
+    inputs.file('src/main/assets/www/index.html')
+    inputs.property('releaseVersion', releaseVersion)
+    inputs.property('sourceCommit', buildCommit)
+    inputs.property('releaseTag', releaseTag)
+    outputs.dir(buildInfoDir)
+    doLast {
+        def out = buildInfoDir.get().file('build-info.json').asFile
+        out.parentFile.mkdirs()
+        def sourceHtml = file('src/main/assets/www/index.html').bytes
+        def sourceHtmlSha256 = java.security.MessageDigest.getInstance('SHA-256').digest(sourceHtml).encodeHex().toString()
+        out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+            applicationId: android.defaultConfig.applicationId,
+            versionCode: android.defaultConfig.versionCode,
+            versionName: android.defaultConfig.versionName,
+            sourceCommit: buildCommit,
+            releaseTag: releaseTag,
+            sourceHtmlSha256: sourceHtmlSha256
+        ])) + '\n'
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn(tasks.named('generateBuildInfo')) }

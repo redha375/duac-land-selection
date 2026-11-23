@@ -1,0 +1,71 @@
+name: Android field beta release
+
+on:
+  push:
+    tags:
+      - 'v2.*-field-blank-beta'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify tag points at this exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "refs/tags/${GITHUB_REF_NAME}^{commit}")" = "$GITHUB_SHA"
+          test "$GITHUB_REF_NAME" = "v2.3.0-field-blank-beta"
+      - name: Verify blank-field source and JavaScript syntax
+        run: python3 scripts/verify_field_source.py
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build release APK from the tag
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ./android/gradlew -p android clean assembleRelease \
+            -PsourceCommit="$GITHUB_SHA" -PreleaseTag="$GITHUB_REF_NAME"
+      - name: Verify package, version and embedded provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -mindepth 2 -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -n "$AAPT"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          grep -F "package: name='dz.medea.parcel.fieldbeta230' versionCode='3' versionName='2.3.0-field-blank-beta'" <<<"$BADGING"
+          unzip -p "$APK" assets/build-info.json > build-info.json
+          grep -F '"sourceCommit": "'"$GITHUB_SHA"'"' build-info.json
+          grep -F '"releaseTag": "'"$GITHUB_REF_NAME"'"' build-info.json
+          python3 scripts/verify_field_apk.py --apk "$APK" --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME"
+          cp "$APK" el-taamir-field-blank-beta-2.3.0.apk
+          sha256sum el-taamir-field-blank-beta-2.3.0.apk | tee el-taamir-field-blank-beta-2.3.0.apk.sha256
+      - name: Publish the verified APK and checksum
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 'التعمير — نسخة ميدانية فارغة 2.3.0'
+          prerelease: true
+          files: |
+            el-taamir-field-blank-beta-2.3.0.apk
+            el-taamir-field-blank-beta-2.3.0.apk.sha256
