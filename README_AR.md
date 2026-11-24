@@ -33,3 +33,6 @@
 
 ### التحقق من ملف الإصدار
 بعد تنزيل ملف APK وملف `.sha256` من صفحة الإصدار نفسها، شغّل `sha256sum -c el-taamir-field-blank-beta-2.3.0.apk.sha256`. تُضمّن الحزمة `assets/build-info.json`؛ للتحقق من الوسم والـcommit ونسخة التطبيق وبصمة HTML داخل APK: `python3 scripts/verify_field_apk.py --apk el-taamir-field-blank-beta-2.3.0.apk --commit <commit-from-release> --tag v2.3.0-field-blank-beta`. يجب مطابقة `sourceCommit` مع commit الذي يشير إليه الوسم في GitHub، ومطابقة بصمة SHA-256 المنشورة قبل التثبيت. لا يتغير إصدار 2.2.0؛ التطبيق الجديد له package ID مختلف.
+
+## النسخة الآمنة للتعميم v3.3
+أُضيفت نسخة ويب منفصلة بصلاحيات خادمية مُطبّقة عبر Supabase RLS: [مصدر التطبيق](./docs/taamir-secure/index.html) و[تعليمات الإعداد وSQL](./docs/taamir-secure/README_AR.md). لا تستعمل بيانات الاعتماد الخاصة بك في المستودع. إعداد قاعدة بيانات Supabase الفعلية مسؤولية المالك ولم يُنفّذ ضمن هذا الإصدار؛ نسخة Android الميدانية 2.3.0 تبقى كما هي.

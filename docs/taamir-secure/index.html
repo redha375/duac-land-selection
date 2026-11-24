@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DUAC Médéa — التعمير | v3.3 secure beta</title><link rel="icon" href="../assets/icon-512.png"><link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--green:#0b3d2e;--gold:#c9a227;--bg:#f3f6f2;--card:#fff;--mut:#64748b;--line:#e2e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Tahoma;background:var(--bg);color:#0f172a}
+header{background:var(--green);color:#fff;padding:10px 14px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:1000}
+header img{width:62px;height:62px;object-fit:contain;background:transparent;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+header h1{margin:0;font-size:20px}header p{margin:2px 0 0;opacity:.85;font-size:13px}
+header .actions{margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700;background:var(--gold);color:#111}
+button.sec{background:#fff;border:1px solid var(--line);color:#0f172a}button.green{background:var(--green);color:#fff}button.danger{background:#dc2626;color:#fff}
+nav{display:flex;gap:8px;overflow:auto;padding:10px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:78px;z-index:999}
+nav button{white-space:nowrap;background:#eef2ee;color:#0b3d2e}nav button.active{background:var(--green);color:#fff}
+main{max-width:1280px;margin:auto;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.kpi{font-size:28px;font-weight:900}.mut{color:var(--mut);font-size:13px}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;margin:6px 0;font-family:inherit}
+label{font-weight:700;font-size:13px}form{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.full{grid-column:1/-1}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:start;font-size:13px}th{background:#0b3d2e;color:#fff}
+.badge{padding:4px 8px;border-radius:20px;font-size:12px;font-weight:700;background:#fef3c7}.b-green{background:#dcfce7}.b-red{background:#fee2e2}.b-blue{background:#dbeafe}
+#map{height:520px;border-radius:16px;border:2px solid var(--gold);z-index:1}
+.map-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.hidden{display:none!important}
+.search{display:flex;gap:8px}.search input{flex:1}
+@media(max-width:700px){form{grid-template-columns:1fr}header h1{font-size:17px}#map{height:420px}nav{top:74px}}
+.print{font-size:12px;color:#666}
+</style></head>
+<body>
+<header><img src="../assets/taamir-logo.jpg" alt="DUAC Médéa"><div><h1>DUAC — مديرية التعمير والهندسة المعمارية والبناء · المدية</h1><p>التعمير El Taamir — v3.3 · صلاحيات مؤمّنة عبر Supabase</p></div>
+<div class="actions"><button onclick="exportJSON()">⬇ تصدير JSON</button><button class="sec" disabled title="غير متاح في النسخة المؤمنة">⬆ استيراد غير متاح</button><button class="sec" onclick="toggleSupabase()">⚙ Supabase</button><button class="sec" onclick="window.print()">🖨 طباعة</button></div></header>
+
+
+<div id="authBar" style="background:#111827;color:#fff;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<span id="whoLabel">👤 غير مسجل — سجّل الدخول للتحقق من صلاحيتك</span>
+<input id="authEmail" type="email" autocomplete="username" placeholder="البريد الإلكتروني" style="max-width:240px;margin:0">
+<input id="authPass" type="password" autocomplete="current-password" placeholder="كلمة السر" style="max-width:180px;margin:0">
+<button onclick="supaLogin()">دخول</button><button class="sec" onclick="supaSignup()">طلب حساب</button>
+<button class="sec" onclick="logout()">خروج</button>
+<button class="sec hidden" id="membersButton" onclick="toggleMembers()">إدارة الصلاحيات</button>
+<span id="roleBadge" class="badge b-green">غير مسجل</span>
+</div>
+<div id="loginHint" class="card" style="margin:10px"><b>الصلاحيات تُفرض من Supabase، لا من هذا الجهاز:</b> المدير يدير السجلات والحسابات؛ العون يضيف ويعدّل ويرفع الملفات؛ المراقب يقرأ فقط. التسجيل الجديد يبقى موقوفاً حتى يمنحه المدير دوراً. عند عدم الاتصال لا يمكن تعديل سجلات الفريق.</div>
+<div id="membersPanel" class="card hidden" style="margin:10px"><h3>إدارة حسابات الفريق</h3><p class="mut">الحسابات الجديدة تبدأ موقوفة. اختر الدور والحالة ثم احفظ؛ يرفض الخادم أي تغيير لا يجريه مدير مخوّل.</p><button class="sec" onclick="refreshProfiles()">تحديث القائمة</button><div id="membersList" style="overflow:auto;margin-top:8px"></div></div>
+<div id="supaBox" class="hidden" style="background:#fff3cd;padding:12px;margin:10px;border-radius:12px">
+<b>إعداد Supabase:</b> نفّذ ملف <b>supabase-secure.sql</b> على مشروع Supabase جديد أو راجعه مع مسؤول قاعدة البيانات قبل الترحيل. ثم أدخل Project URL و anon public key فقط؛ لا تضع service_role key هنا.
+<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="supaUrl" placeholder="https://xxxx.supabase.co"><input id="supaKey" placeholder="anon public key"><button onclick="saveSupa()">حفظ واتصال</button><span id="supaStatus" class="mut"></span></div>
+<p class="mut">وضع المعاينة المحلي منفصل عن بيانات الفريق. لا ترفع أي سجل محلي تلقائياً؛ سجّل الدخول بصلاحية فعالة لقراءة/تعديل سجلات Supabase. لا تضع أسرارًا أو مفاتيح service_role في الواجهة.</p></div>
+
+<nav id="tabs"></nav>
+<main>
+<!-- DASHBOARD -->
+<section data-page="home">
+<div class="grid" id="kpis"></div>
+<div class="grid" style="margin-top:12px">
+<div class="card"><h3>🗺️ آخر الأوعية العقارية</h3><div id="lastParcels"></div><button onclick="go('parcels')">فتح الخريطة</button></div>
+<div class="card"><h3>📐 مخططات PDAU / POS</h3><div id="lastPlans"></div><button onclick="go('plans')">فتح المخططات</button></div>
+<div class="card"><h3>⚖️ ملفات التسوية 15-08 / 22-55</h3><div id="lastReg"></div><button onclick="go('regular')">فتح التسوية</button></div>
+<div class="card"><h3>👶 مؤسسات الطفولة — تنبيهات</h3><div id="childAlerts"></div><button onclick="go('childhood')">فتح المتابعة</button></div>
+</div>
+<div class="card" style="margin-top:12px"><h3>📌 تنبيه قانوني / مهني</h3><p class="mut">الخريطة للاستكشاف والتخطيط فقط. الحدود والمساحات تقريبية ولا تثبت الملكية. المرجع الرسمي: شهادة التعمير، نسخة PDAU/POS السارية، سند الملكية، وقرارات التسوية. لا تُدخل بيانات شخصية حساسة.</p></div>
+</section>
+
+<!-- PARCELS -->
+<section data-page="parcels" class="hidden">
+<div class="map-tools">
+<button id="btnMap" onclick="setBase('map')">🗺️ Mode Maps</button><button id="btnSat" onclick="setBase('sat')">🛰️ Satellite</button>
+<button class="sec" onclick="locateMe()">📍 موقعي</button><button class="sec" onclick="clearDraw()">🧹 مسح الرسم</button>
+<span class="badge" id="areaLabel">المساحة: —</span><span class="badge b-blue" id="parcelsCount"></span>
+</div>
+<div class="search"><input id="parcelSearch" placeholder="بحث: بلدية، مرجع، وضعية عقارية..." oninput="renderAll()"><select id="parcelFilter" onchange="renderAll()"><option value="">كل الوضعيات</option><option>ملك دولة</option><option>ملك بلدية</option><option>ملك خاص</option><option>غير محدد</option></select></div>
+<div id="map"></div>
+<form class="card" id="parcelForm" style="margin-top:12px"><h3 class="full">➕ إضافة / تعديل وعاء عقاري (ارسم المضلع أولاً على الخريطة)</h3>
+<label>البلدية<input name="commune" required placeholder="مثال: المدية"></label><label>المرجع / الرمز<input name="ref" placeholder="DUAC-MED-001"></label>
+<label>المساحة (م²) — تُحسب تلقائياً<input name="area" type="number" step="0.01"></label><label>الوضعية العقارية<select name="status"><option>ملك دولة</option><option>ملك بلدية</option><option>ملك خاص</option><option>غير محدد</option></select></label>
+<label>الوجهة المقترحة<select name="dest"><option>سكني</option><option>تجهيز عمومي</option><option>نشاط / خدمات</option><option>مساحة خضراء</option><option>أخرى</option></select></label><label>الحالة<select name="state"><option>مقترح</option><option>قيد الدراسة</option><option>مصادق عليه</option><option>مرفوض</option><option>مستغل</option></select></label>
+<label class="full">ملاحظات / مصدر المعلومة<textarea name="notes" rows="2"></textarea></label>
+<input type="hidden" name="id"><input type="hidden" name="geojson">
+<button class="green full" type="submit">💾 حفظ الوعاء</button></form>
+<div id="parcelsTable" style="overflow:auto;margin-top:12px"></div></section>
+
+<!-- PLANS -->
+<section data-page="plans" class="hidden"><h2>📐 مخططات شغل الأراضي POS و مخططات التهيئة والتعمير PDAU</h2>
+<form class="card" id="planForm"><h3>➕ إضافة مخطط</h3><label>نوع المخطط<select name="type"><option>PDAU</option><option>POS</option><option>مخطط تهيئة قطاعي</option></select></label><label>البلدية / النطاق<input name="commune" required></label><label>رقم / مرجع المخطط<input name="ref"></label><label>تاريخ المصادقة<input name="date" type="date"></label><label>الحالة<select name="state"><option>ساري</option><option>قيد المراجعة</option><option>قيد الدراسة</option><option>ملغى</option></select></label><label>COS<input name="cos" placeholder="مثال: 1.2"></label><label>CUS<input name="cus" placeholder="مثال: 0.6"></label><label>الارتفاع الأقصى<input name="height" placeholder="R+3"></label><label>الارتدادات<input name="setback" placeholder="مثال: 4م أمامي"></label><label class="full">البرنامج / الملاحظات<textarea name="notes" rows="2"></textarea></label><input type="hidden" name="id"><button class="green full">💾 حفظ المخطط</button></form>
+<div id="plansTable" style="overflow:auto;margin-top:12px"></div></section>
+
+<!-- CLASSIFIED -->
+<section data-page="classified" class="hidden"><h2>🏭 المؤسسات المصنفة</h2>
+<form class="card" id="classForm"><label>اسم المؤسسة<input name="name" required></label><label>الصنف<select name="cat"><option>الصنف 1</option><option>الصنف 2</option><option>الصنف 3</option><option>الصنف 4</option></select></label><label>النشاط<input name="activity" placeholder="مثال: نجارة، مطبعة..."></label><label>البلدية<input name="commune"></label><label>العنوان<input name="address"></label><label>رخصة الاستغلال<input name="license"></label><label>تاريخ المراقبة الأخيرة<input name="lastCheck" type="date"></label><label>الحالة<select name="state"><option>نشطة / مطابقة</option><option>تحفظات</option><option>مخالفة</option><option>متوقفة</option></select></label><label class="full">التحفظات / الإجراءات<textarea name="notes" rows="2"></textarea></label><input type="hidden" name="id"><button class="green full">💾 حفظ المؤسسة</button></form>
+<div class="search" style="margin-top:10px"><input id="classSearch" placeholder="بحث في المؤسسات المصنفة..." oninput="renderAll()"></div><div id="classTable" style="overflow:auto;margin-top:8px"></div></section>
+
+<!-- CHILDHOOD -->
+<section data-page="childhood" class="hidden"><h2>👶 إنشاء ومراقبة مؤسسات الطفولة (روضة / حضانة / مركز)</h2>
+<form class="card" id="childForm"><label>اسم المؤسسة<input name="name" required></label><label>النوع<select name="type"><option>روضة أطفال</option><option>دار حضانة</option><option>مركز استقبال الطفولة</option><option>نادي أطفال</option></select></label><label>البلدية<input name="commune"></label><label>المسير / الممثل<input name="manager"></label><label>السعة (طفل)<input name="capacity" type="number"></label><label>عدد الأطفال الحالي<input name="current" type="number"></label><label>رقم الاعتماد<input name="license"></label><label>تاريخ الاعتماد<input name="licenseDate" type="date"></label><label>تاريخ انتهاء الاعتماد<input name="expiry" type="date"></label><label>آخر زيارة تفتيش<input name="lastVisit" type="date"></label><label>نتيجة التفتيش<select name="state"><option>مطابقة</option><option>تحفظات بسيطة</option><option>تحفظات جوهرية</option><option>إنذار</option><option>غلق مؤقت</option></select></label><label class="full">ملاحظات التفتيش<textarea name="notes" rows="2"></textarea></label><input type="hidden" name="id"><button class="green full">💾 حفظ المؤسسة</button></form>
+<div id="childTable" style="overflow:auto;margin-top:12px"></div></section>
+
+<!-- CONTRACTS -->
+<section data-page="contracts" class="hidden"><h2>📄 عقود التعمير</h2>
+<form class="card" id="contractForm"><label>رقم العقد<input name="ref" required></label><label>نوع العقد<select name="type"><option>عقد دراسة</option><option>عقد متابعة / إنجاز</option><option>عقد تهيئة</option><option>عقد خبرة</option><option>اتفاقية</option></select></label><label>الطرف المتعاقد<input name="party" placeholder="مكتب دراسات / مقاولة"></label><label>الموضوع<input name="subject"></label><label>المبلغ (دج)<input name="amount" type="number"></label><label>تاريخ الإبرام<input name="start" type="date"></label><label>تاريخ الانتهاء<input name="end" type="date"></label><label>الحالة<select name="state"><option>ساري</option><option>قيد التنفيذ</option><option>منتهي</option><option>مفسوخ</option><option>قيد التجديد</option></select></label><label class="full">ملف PDF للعقد (Supabase Storage)<input type="file" name="pdffile" accept=".pdf"></label><label class="full">روابط PDF المحفوظة<input name="files" placeholder="تُملأ تلقائياً بعد الرفع — أو الصق رابط"></label><label class="full">ملاحظات<textarea name="notes" rows="2"></textarea></label><input type="hidden" name="id"><button class="green full">💾 حفظ العقد + رفع PDF</button><div class="full" id="contractFiles"></div></form>
+<div id="contractTable" style="overflow:auto;margin-top:12px"></div></section>
+
+<!-- REGULARIZATION -->
+<section data-page="regular" class="hidden"><h2>⚖️ ملفات التسوية — القانون 15-08 و 22-55</h2>
+<div class="card"><p><b>15-08:</b> مطابقة البنايات وإتمام إنجازها. <b>22-55:</b> تسوية البنايات غير المطابقة / وضعيات عقارية محددة. سجّل كل ملف برقمه، مساره، وآخر قرار. هذا التطبيق لا يصدر قراراً قانونياً.</p></div>
+<form class="card" id="regForm"><label>رقم الملف<input name="ref" required></label><label>الإطار القانوني<select name="law"><option>15-08</option><option>22-55</option></select></label><label>اسم المعني (بدون بيانات حساسة زائدة)<input name="owner"></label><label>البلدية<input name="commune"></label><label>طبيعة البناية<select name="btype"><option>سكن فردي</option><option>سكن جماعي</option><option>تجاري</option><option>تجهيز</option><option>أخرى</option></select></label><label>تاريخ الإيداع<input name="filed" type="date"></label><label>المرحلة<select name="stage"><option>مودع</option><option>قيد الدراسة التقنية</option><option>رأي اللجنة</option><option>مقبول</option><option>مرفوض</option><option>تحفظات / تكملة ملف</option></select></label><label>القرار / المرجع<input name="decision"></label><label class="full">ملف PDF لملف التسوية<input type="file" name="pdffile" accept=".pdf"></label><label class="full">روابط PDF المحفوظة<input name="files" placeholder="تُملأ تلقائياً بعد الرفع"></label><label class="full">ملاحظات اللجنة<textarea name="notes" rows="2"></textarea></label><input type="hidden" name="id"><button class="green full">💾 حفظ الملف + رفع PDF</button><div class="full" id="regFiles"></div></form>
+<div class="search" style="margin-top:10px"><input id="regSearch" placeholder="بحث: رقم ملف، بلدية..." oninput="renderAll()"><select id="regLaw" onchange="renderAll()"><option value="">كل القوانين</option><option>15-08</option><option>22-55</option></select></div>
+<div id="regTable" style="overflow:auto;margin-top:8px"></div></section>
+</main>
+<footer style="text-align:center;padding:20px;color:#64748b">DUAC Médéa — التعمير v3.3 secure beta · تحقق دائماً من الوثائق الرسمية</footer>
+
+<script>
+const TABS=[['home','🏠 الرئيسية'],['parcels','🗺️ اختيار الأراضي'],['plans','📐 PDAU / POS'],['classified','🏭 المؤسسات المصنفة'],['childhood','👶 مؤسسات الطفولة'],['contracts','📄 عقود التعمير'],['regular','⚖️ تسوية 15-08 / 22-55']];
+document.getElementById('tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
+let DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};
+let supa=null, drawn=null, map=null, baseMap=null, baseSat=null, parcelsLayer=null;
+let CURRENT_ROLE=null, CURRENT_USER='غير مسجل', CURRENT_UID=null, MEMBER_ACTIVE=false;
+function isSignedIn(){return !!(supa&&CURRENT_UID&&MEMBER_ACTIVE)}
+function canWrite(){return isSignedIn()&&(CURRENT_ROLE==='manager'||CURRENT_ROLE==='agent')}
+function canDelete(){return isSignedIn()&&CURRENT_ROLE==='manager'}
+function updateWho(){
+ const labels={manager:'مدير',agent:'عون',monitor:'مراقب'};
+ const state=!supa?'غير متصل بـ Supabase':!CURRENT_UID?'غير مسجل':!MEMBER_ACTIVE?'الحساب بانتظار تفعيل المدير':(labels[CURRENT_ROLE]||'دور غير معروف');
+ document.getElementById('whoLabel').textContent='👤 '+CURRENT_USER+' — '+state;
+ document.getElementById('roleBadge').textContent=state;
+ document.getElementById('membersButton').classList.toggle('hidden',!canDelete());
+ document.querySelectorAll('form button:not([type]), form button[type=submit]').forEach(b=>{b.disabled=!canWrite(); b.title=canWrite()?'':'سجّل الدخول بحساب فعّال للكتابة';});
+ document.querySelectorAll('form input, form select, form textarea').forEach(el=>{el.disabled=!canWrite();});
+}
+function configureSupa(){const u=localStorage.getItem('supa_url'),k=localStorage.getItem('supa_key'); if(!u||!k){supa=null;updateWho();return false;} try{supa=window.supabase.createClient(u,k);supa.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>applySession(session),0)}); return true;}catch(e){supa=null;document.getElementById('supaStatus').textContent='تعذر إعداد الاتصال؛ راجع URL و anon key.';updateWho();return false;}}
+async function applySession(session){
+ DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};renderAll();
+ CURRENT_UID=session?.user?.id||null; CURRENT_USER=session?.user?.email||'غير مسجل';CURRENT_ROLE=null;MEMBER_ACTIVE=false;
+ if(CURRENT_UID){const {data:prof,error}=await supa.from('profiles').select('role,active').eq('id',CURRENT_UID).maybeSingle();
+   if(!error&&prof){CURRENT_ROLE=prof.role;MEMBER_ACTIVE=prof.active===true;}
+   if(error) document.getElementById('supaStatus').textContent='تعذر قراءة الصلاحية من الخادم.';
+ }
+ updateWho(); if(isSignedIn()) await loadFromSupa(); else renderAll();
+}
+async function saveRecord(key,record){
+ if(!canWrite()) throw new Error('لا توجد صلاحية كتابة فعّالة.');
+ const {error}=await supa.from(key).upsert({id:record.id,data:record,updated_at:new Date().toISOString()});
+ if(error) throw error; const i=DB[key].findIndex(x=>x.id===record.id); if(i>=0) DB[key][i]={...DB[key][i],...record}; else DB[key].push(record);renderAll();
+}
+async function deleteRecord(key,id){
+ if(!canDelete()) return alert('الحذف متاح للمدير الفعّال فقط.');
+ const {error}=await supa.from(key).delete().eq('id',id); if(error) return alert('لم يتم الحذف من الخادم: '+error.message);
+ DB[key]=DB[key].filter(x=>x.id!==id);renderAll();
+}
+function go(p){document.querySelectorAll('[data-page]').forEach(s=>s.classList.toggle('hidden',s.dataset.page!==p));document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.t===p)); if(p==='parcels') setTimeout(initMap,80); window.scrollTo({top:0,behavior:'smooth'});}
+function esc(s){return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+function initMap(){if(map) {map.invalidateSize();return;}
+ map=L.map('map').setView([36.2675,2.75],12);
+ baseMap=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
+ baseSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri, Maxar, Earthstar Geographics'});
+ parcelsLayer=L.geoJSON(null,{onEachFeature:(f,l)=>l.bindPopup(`<b>${esc(f.properties?.commune||'')}</b><br>${esc(f.properties?.ref||'')}<br>${esc(f.properties?.dest||'')}`)}).addTo(map);
+ const drawnItems=new L.FeatureGroup(); map.addLayer(drawnItems);
+ const drawCtl=new L.Control.Draw({edit:{featureGroup:drawnItems},draw:{polygon:true,polyline:false,rectangle:true,circle:false,marker:true,circlemarker:false}});
+ map.addControl(drawCtl);
+ map.on(L.Draw.Event.CREATED,e=>{drawnItems.clearLayers();drawnItems.addLayer(e.layer);drawn=e.layer; if(e.layer.getLatLngs){const gj=e.layer.toGeoJSON();document.querySelector('#parcelForm [name=geojson]').value=JSON.stringify(gj.geometry); if(gj.geometry.type==='Polygon'){let a=0;const ring=gj.geometry.coordinates[0];for(let i=0;i<ring.length-1;i++){const p1=L.latLng(ring[i][1],ring[i][0]),p2=L.latLng(ring[i+1][1],ring[i+1][0]);} calcArea(gj);} }});
+ drawCtl._toolbars.draw._modes.polygon.handler.enable();
+ window._drawnItems=drawnItems;
+}
+function calcArea(gj){ // approx via turf-like shoelace in meters
+ const R=6371000, ring=gj.geometry.coordinates[0]; let x=[],y=[]; ring.forEach(c=>{x.push(c[0]*Math.PI/180*R*Math.cos(36.26*Math.PI/180)); y.push(c[1]*Math.PI/180*R);}); let a=0; for(let i=0;i<ring.length-1;i++) a+=(x[i]*y[i+1]-x[i+1]*y[i]); a=Math.abs(a/2); document.querySelector('#parcelForm [name=area]').value=Math.round(a); document.getElementById('areaLabel').textContent='المساحة: '+Math.round(a).toLocaleString('ar-DZ')+' م²';}
+function setBase(m){if(!map)return; if(m==='sat'){map.removeLayer(baseMap); if(!map.hasLayer(baseSat)) baseSat.addTo(map);} else {map.removeLayer(baseSat); if(!map.hasLayer(baseMap)) baseMap.addTo(map);} document.getElementById('btnMap').style.opacity=m==='map'?1:.6; document.getElementById('btnSat').style.opacity=m==='sat'?1:.6;}
+function locateMe(){if(!map)return; map.locate({setView:true,maxZoom:15}); map.on('locationfound',e=>L.marker(e.latlng).addTo(map).bindPopup('موقعك التقريبي').openPopup());}
+function clearDraw(){if(window._drawnItems) window._drawnItems.clearLayers(); document.getElementById('areaLabel').textContent='المساحة: —';}
+function toggleSupabase(){document.getElementById('supaBox').classList.toggle('hidden'); const u=localStorage.getItem('supa_url'),k=localStorage.getItem('supa_key'); if(u) document.getElementById('supaUrl').value=u; if(k) document.getElementById('supaKey').value=k;}
+function table(headers,rows,editFn,delFn){ if(!rows.length) return '<p class="mut">لا توجد سجلات بعد.</p>'; return `<table><tr>${headers.map(h=>`<th>${h}</th>`).join('')}<th>إجراء</th></tr>${rows.map(r=>`<tr>${r.cells.map(c=>`<td>${c&&typeof c==='object'&&c.secureButton?c.secureButton:esc(c)}</td>`).join('')}<td>${canWrite()?`<button class="sec" onclick="${editFn}('${r.id}')">تعديل</button>`:''} ${canDelete()?`<button class="danger" onclick="${delFn}('${r.id}')">حذف</button>`:''}</td></tr>`).join('')}</table>`;}
+function renderAll(){
+ const q=(document.getElementById('parcelSearch')?.value||'').toLowerCase(), pf=document.getElementById('parcelFilter')?.value||'';
+ let parcels=DB.parcels.filter(p=>(!q||JSON.stringify(p).toLowerCase().includes(q))&&(!pf||p.status===pf));
+ document.getElementById('parcelsCount').textContent=parcels.length+' وعاء';
+ document.getElementById('parcelsTable').innerHTML=table(['البلدية','المرجع','المساحة م²','الوضعية','الوجهة','الحالة'],parcels.map(p=>({id:p.id,cells:[p.commune,p.ref,p.area,p.status,p.dest,p.state]})),'editParcel','delParcel');
+ if(map&&parcelsLayer){ parcelsLayer.clearLayers(); parcels.forEach(p=>{ if(p.geojson){ try{ const gj=JSON.parse(p.geojson); parcelsLayer.addData({type:'Feature',geometry:gj,properties:p}); }catch(e){} } }); }
+ document.getElementById('kpis').innerHTML=[['🗺️ الأوعية',DB.parcels.length],['📐 المخططات',DB.plans.length],['🏭 المصنفة',DB.classified.length],['👶 الطفولة',DB.childhood.length],['📄 العقود',DB.contracts.length],['⚖️ التسوية',DB.regular.length]].map(k=>`<div class="card"><div class="mut">${k[0]}</div><div class="kpi">${k[1]}</div></div>`).join('');
+ document.getElementById('lastParcels').innerHTML=DB.parcels.slice(-3).map(p=>`<p>• ${esc(p.commune)} — ${esc(p.ref)} <span class="badge">${esc(p.state||'')}</span></p>`).join('')||'<p class="mut">لا سجلات</p>';
+ document.getElementById('lastPlans').innerHTML=DB.plans.slice(-3).map(p=>`<p>• ${esc(p.type)} ${esc(p.commune)} — ${esc(p.state||'')}</p>`).join('')||'<p class="mut">لا سجلات</p>';
+ document.getElementById('lastReg').innerHTML=DB.regular.slice(-3).map(p=>`<p>• ${esc(p.ref)} (${esc(p.law)}) — ${esc(p.stage||'')}</p>`).join('')||'<p class="mut">لا سجلات</p>';
+ const expiring=DB.childhood.filter(c=>c.expiry && new Date(c.expiry)<new Date(Date.now()+30*864e5));
+ document.getElementById('childAlerts').innerHTML=expiring.length?expiring.map(c=>`<p>⚠️ ${esc(c.name)} — اعتماد ينتهي ${esc(c.expiry)}</p>`).join(''):'<p class="mut">لا تنبيهات انتهاء خلال 30 يوم.</p>';
+ document.getElementById('plansTable').innerHTML=table(['النوع','البلدية','المرجع','المصادقة','الحالة','COS/CUS'],DB.plans.map(p=>({id:p.id,cells:[p.type,p.commune,p.ref,p.date,p.state,(p.cos||'')+' / '+(p.cus||'')]})) ,'editPlan','delPlan');
+ const cq=(document.getElementById('classSearch')?.value||'').toLowerCase();
+ document.getElementById('classTable').innerHTML=table(['المؤسسة','الصنف','النشاط','البلدية','الحالة'],DB.classified.filter(c=>!cq||JSON.stringify(c).toLowerCase().includes(cq)).map(p=>({id:p.id,cells:[p.name,p.cat,p.activity,p.commune,p.state]})) ,'editClass','delClass');
+ document.getElementById('childTable').innerHTML=table(['المؤسسة','النوع','البلدية','السعة','الحالي','انتهاء الاعتماد','التفتيش'],DB.childhood.map(p=>({id:p.id,cells:[p.name,p.type,p.commune,p.capacity,p.current,p.expiry,p.state]})) ,'editChild','delChild');
+ document.getElementById('contractTable').innerHTML=table(['رقم العقد','النوع','الطرف','المبلغ دج','الانتهاء','الحالة','PDF'],DB.contracts.map(p=>({id:p.id,cells:[p.ref,p.type,p.party,Number(p.amount||0).toLocaleString('ar-DZ'),p.end,p.state,addProfileFileButton(p.files)||((p.files||'').slice(0,60))]})) ,'editContract','delContract');
+ const rq=(document.getElementById('regSearch')?.value||'').toLowerCase(), rl=document.getElementById('regLaw')?.value||'';
+ document.getElementById('regTable').innerHTML=table(['رقم الملف','القانون','البلدية','البناية','الإيداع','المرحلة','PDF'],DB.regular.filter(c=>(!rq||JSON.stringify(c).toLowerCase().includes(rq))&&(!rl||c.law===rl)).map(p=>({id:p.id,cells:[p.ref,p.law,p.commune,p.btype,p.filed,p.stage,addProfileFileButton(p.files)||((p.files||'').slice(0,60))]})) ,'editReg','delReg');
+}
+function bindForm(id,key,page){document.getElementById(id).addEventListener('submit',async e=>{e.preventDefault();if(!canWrite())return alert('سجّل الدخول بحساب فعّال ومصرّح له بالكتابة.');const fileInput=e.target.querySelector('input[name=pdffile]');if(fileInput?.files?.[0]){const path=await uploadPDF(fileInput.files[0],e.target.id==='contractForm'?'contracts':'regular');if(!path)return;const f=e.target.querySelector('input[name=files]');if(f)f.value=f.value?f.value+' | '+path:path;}const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());o.id=o.id||crypto.randomUUID();o.created_at=o.created_at||new Date().toISOString();try{await saveRecord(key,o);e.target.reset();alert('✅ حُفظ السجل على الخادم');if(page)go(page);}catch(err){alert('تعذر الحفظ على الخادم: '+(err.message||'خطأ اتصال'));}});}
+bindForm('parcelForm','parcels');bindForm('planForm','plans');bindForm('classForm','classified');bindForm('childForm','childhood');bindForm('contractForm','contracts');bindForm('regForm','regular');
+function editGeneric(key,formId,id,page){const r=DB[key].find(x=>x.id===id); if(!r)return; go(page); const f=document.getElementById(formId); Object.entries(r).forEach(([k,v])=>{const el=f.querySelector(`[name=${k}]`); if(el) el.value=v;}); window.scrollTo({top:0});}
+function delGeneric(key,id){if(!confirm('حذف نهائي؟'))return; deleteRecord(key,id);}
+const editParcel=id=>editGeneric('parcels','parcelForm',id,'parcels'), delParcel=id=>delGeneric('parcels',id);
+const editPlan=id=>editGeneric('plans','planForm',id,'plans'), delPlan=id=>delGeneric('plans',id);
+const editClass=id=>editGeneric('classified','classForm',id,'classified'), delClass=id=>delGeneric('classified',id);
+const editChild=id=>editGeneric('childhood','childForm',id,'childhood'), delChild=id=>delGeneric('childhood',id);
+const editContract=id=>editGeneric('contracts','contractForm',id,'contracts'), delContract=id=>delGeneric('contracts',id);
+const editReg=id=>editGeneric('regular','regForm',id,'regular'), delReg=id=>delGeneric('regular',id);
+function exportJSON(){const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='duac-medea-v3-backup.json'; a.click();}
+function importJSON(inp){alert('استيراد النسخ الاحتياطية غير متاح في النسخة المؤمنة لتجنب تجاوز الصلاحيات؛ استخدم سجلات الخادم.');inp.value='';}
+
+// Authenticated roles are fetched from the server. The browser never invents or persists an authorization role.
+async function supaLogin(){if(!supa&&!configureSupa())return alert('أدخل إعدادات Supabase أولاً.');const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPass').value;if(!email||!password)return alert('أدخل البريد وكلمة السر.');const {data,error}=await supa.auth.signInWithPassword({email,password});if(error)return alert('تعذر تسجيل الدخول: '+error.message);await applySession(data.session);document.getElementById('authPass').value='';if(!MEMBER_ACTIVE)alert('الحساب مسجل لكنه غير مفعّل بعد؛ اطلب من المدير تعيين دور لك.');}
+async function supaSignup(){if(!supa&&!configureSupa())return alert('أدخل إعدادات Supabase أولاً.');const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPass').value;if(!email||!password)return alert('أدخل البريد وكلمة سر قوية.');const {error}=await supa.auth.signUp({email,password});if(error)return alert('تعذر إنشاء الطلب: '+error.message);alert('تم إنشاء الحساب. يبقى موقوفاً حتى يفعّله مدير من إدارة الصلاحيات.');}
+async function logout(){if(supa)await supa.auth.signOut();CURRENT_UID=null;CURRENT_ROLE=null;CURRENT_USER='غير مسجل';MEMBER_ACTIVE=false;DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};updateWho();renderAll();}
+function toggleSupabase(){document.getElementById('supaBox').classList.toggle('hidden');const u=localStorage.getItem('supa_url'),k=localStorage.getItem('supa_key');if(u)document.getElementById('supaUrl').value=u;if(k)document.getElementById('supaKey').value=k;}
+function isPublicSupabaseKey(k){if(k.startsWith('sb_secret_'))return false;try{const payload=JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(payload.role==='service_role')return false;if(payload.role&&payload.role!=='anon')return false;return true;}catch{return k.startsWith('sb_publishable_');}}
+async function saveSupa(){const u=document.getElementById('supaUrl').value.trim(),k=document.getElementById('supaKey').value.trim();let parsed;try{parsed=new URL(u);}catch{return alert('أدخل Project URL صالحاً عبر HTTPS.');}if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.pathname!=='/'||!isPublicSupabaseKey(k))return alert('أدخل عنوان HTTPS ومفتاح anon/public فقط؛ مفاتيح service_role أو secret مرفوضة.');localStorage.setItem('supa_url',u);localStorage.setItem('supa_key',k);CURRENT_UID=null;CURRENT_ROLE=null;CURRENT_USER='غير مسجل';MEMBER_ACTIVE=false;configureSupa();document.getElementById('supaStatus').textContent='أُعدّ الاتصال. سجّل الدخول؛ لم تُرفع بيانات الجهاز.';const {data,error}=await supa.auth.getSession();if(error){document.getElementById('supaStatus').textContent='تعذر فتح الجلسة: '+error.message;return;}await applySession(data.session);}
+async function loadFromSupa(){if(!isSignedIn())return;DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};for(const tbl of ['parcels','plans','classified','childhood','contracts','regular']){const {data,error}=await supa.from(tbl).select('id,data');if(error){document.getElementById('supaStatus').textContent='رفض الخادم قراءة '+tbl+': '+error.message;return;}DB[tbl]=(data||[]).map(x=>x.data);}renderAll();document.getElementById('supaStatus').textContent='متصل؛ الصلاحية جرى جلبها من الخادم.';}
+function toggleMembers(){if(!canDelete())return;document.getElementById('membersPanel').classList.toggle('hidden');if(!document.getElementById('membersPanel').classList.contains('hidden'))refreshProfiles();}
+async function refreshProfiles(){if(!canDelete())return;const box=document.getElementById('membersList');box.textContent='جارٍ تحميل الحسابات…';const {data,error}=await supa.from('profiles').select('id,email,role,active').order('email');if(error){box.textContent='تعذر تحميل القائمة: '+error.message;return;}if(!data?.length){box.textContent='لا توجد حسابات.';return;}box.innerHTML='<table><tr><th>الحساب</th><th>الدور</th><th>الحالة</th><th>الإجراء</th></tr>'+data.map(m=>`<tr><td>${esc(m.email||'')}</td><td><select id="role-${m.id}"><option value="monitor" ${m.role==='monitor'?'selected':''}>مراقب</option><option value="agent" ${m.role==='agent'?'selected':''}>عون</option><option value="manager" ${m.role==='manager'?'selected':''}>مدير</option></select></td><td><select id="active-${m.id}"><option value="false" ${m.active?'':'selected'}>موقوف</option><option value="true" ${m.active?'selected':''}>فعّال</option></select></td><td><button onclick="changeAccess('${m.id}')">حفظ</button></td></tr>`).join('')+'</table>';}
+async function changeAccess(id){if(!canDelete())return alert('إدارة الصلاحيات للمدير الفعّال فقط.');const role=document.getElementById('role-'+id).value,active=document.getElementById('active-'+id).value==='true';const {error}=await supa.rpc('set_member_access',{p_user_id:id,p_role:role,p_active:active});if(error){alert('رفض الخادم التغيير: '+error.message);return;}alert('تم تحديث الصلاحية من الخادم.');await refreshProfiles();}
+async function openStoredFile(path){if(!isSignedIn())return alert('الملفات لا تُفتح دون جلسة فعّالة.');if(!/^(contracts|regular)\/[A-Za-z0-9._-]+$/.test(path))return alert('مسار الملف غير صالح.');const {data,error}=await supa.storage.from('duac-files').createSignedUrl(path,300);if(error)return alert('تعذر فتح الملف: '+error.message);window.open(data.signedUrl,'_blank','noopener');}
+async function uploadPDF(file,prefix){if(!file)return null;if(!canWrite())return null;if(file.type!=='application/pdf'||file.size>15*1024*1024){alert('اختر PDF لا يتجاوز 15 MB.');return null;}const path=prefix+'/'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const {error}=await supa.storage.from('duac-files').upload(path,file,{upsert:false,contentType:'application/pdf'});if(error){alert('تعذر رفع PDF: '+error.message);return null;}return path;}
+function addProfileFileButton(raw){const path=String(raw||'').split(' | ').find(x=>/^(contracts|regular)\/[A-Za-z0-9._-]+$/.test(x));return path?{secureButton:`<button class="sec" onclick="openStoredFile('${path}')">فتح PDF مؤقتاً</button>`}:String(raw||'').slice(0,60);}
+if(configureSupa())supa.auth.getSession().then(({data,error})=>{if(!error)applySession(data.session);});else updateWho();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+updateWho();
+
+renderAll(); go('home');
+</script></body></html>

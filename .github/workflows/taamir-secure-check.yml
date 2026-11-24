@@ -1,0 +1,26 @@
+name: El Taamir secure beta checks
+on:
+  push:
+    paths:
+      - 'docs/taamir-secure/**'
+      - 'scripts/verify_taamir_secure.py'
+      - '.github/workflows/taamir-secure-check.yml'
+  pull_request:
+    paths:
+      - 'docs/taamir-secure/**'
+      - 'scripts/verify_taamir_secure.py'
+      - '.github/workflows/taamir-secure-check.yml'
+  workflow_dispatch:
+jobs:
+  source-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check secure role and storage guardrails
+        run: python3 scripts/verify_taamir_secure.py
