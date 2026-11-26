@@ -1,0 +1,46 @@
+name: Deploy El Taamir secure web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/taamir-secure/index.html'
+      - 'docs/taamir-secure/manifest.webmanifest'
+      - 'docs/taamir-secure/sw.js'
+      - 'docs/assets/icon-512.png'
+      - 'docs/assets/taamir-logo.jpg'
+      - '.github/workflows/deploy-taamir-secure-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Stage only the secure web interface and required images
+        run: |
+          mkdir -p _site/taamir-secure _site/assets
+          cp docs/taamir-secure/index.html docs/taamir-secure/manifest.webmanifest docs/taamir-secure/sw.js _site/taamir-secure/
+          cp docs/assets/icon-512.png docs/assets/taamir-logo.jpg _site/assets/
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
