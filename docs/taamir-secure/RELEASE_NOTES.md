@@ -1,11 +1,10 @@
-# El Taamir secure beta 3.3.0
+# El Taamir secure beta 3.4.0
 
-- Preserved the existing blank Android field beta 2.3.0 tag and release.
-- Added a separate authenticated web app under `/taamir-secure/`.
-- Added server-enforced manager / agent / monitor permissions using Supabase RLS.
-- New signups are inactive until an existing manager explicitly activates a role.
-- Made the PDF bucket private; reads require an active team membership, uploads require manager/agent.
-- Removed demo-role login and local client-side role defaults; team records are not cached in browser local storage.
-- No project credentials, user email lists, APK or live Supabase configuration are included.
+- Kept the blank Android field beta 2.3.0 tag and release unchanged.
+- Restricted user/role administration to one explicitly bootstrapped owner identity in Supabase; data managers cannot promote themselves or manage accounts.
+- Added an owner-only Supabase Edge Function to send user invitations without exposing the service-role key in the browser.
+- Added an invitation panel; invited users start as inactive monitors and require owner role assignment and activation after accepting.
+- Preserved server-enforced manager / agent / monitor data permissions, private PDF storage, and no client-side authorization role.
+- Added a guarded owner-bootstrap SQL template, secure setup/deployment instructions, and static checks for the owner and invite authorization paths.
 
-This release is source-only. A dedicated Supabase project must be created and the included SQL run by its owner. This repository has no Supabase credentials, so no live backend migration or real-account role test was performed. This is a web/PWA build, not an APK.
+This is a source-only web/PWA update, not an APK. The dedicated Supabase migration and Edge Function must be deployed by the project owner; no live project configuration or real-account invitation was performed or tested.

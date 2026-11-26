@@ -1,4 +1,4 @@
--- El Taamir v3.3 secure beta
+-- El Taamir v3.4 secure beta
 -- Run ONLY in a new, dedicated Supabase project after review.
 -- Shared team data: manager/agent/monitor roles are enforced by PostgreSQL RLS.
 -- Do not place a service_role key in the browser.
@@ -13,6 +13,15 @@ create table if not exists public.profiles (
 );
 alter table public.profiles add column if not exists active boolean not null default false;
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+
+-- A separate, private owner identity prevents other data managers from changing user access.
+create table if not exists public.app_owner (
+  singleton boolean primary key default true check (singleton),
+  owner_user_id uuid not null references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now()
+);
+alter table public.app_owner enable row level security;
+revoke all on public.app_owner from public, anon, authenticated;
 
 create table if not exists public.parcels (id uuid primary key, data jsonb not null, updated_at timestamptz not null default now());
 create table if not exists public.plans (id uuid primary key, data jsonb not null, updated_at timestamptz not null default now());
@@ -39,9 +48,23 @@ as $$ select p.role from public.profiles p where p.id = (select auth.uid()) and 
 revoke all on function public.current_app_role() from public, anon;
 grant execute on function public.current_app_role() to authenticated;
 
+create or replace function public.is_app_owner()
+returns boolean language sql stable security definer
+set search_path = pg_catalog
+as $$
+  select exists (
+    select 1 from public.app_owner o
+    join public.profiles p on p.id = o.owner_user_id
+    where o.singleton = true and o.owner_user_id = (select auth.uid())
+      and p.active = true and p.role = 'manager'
+  )
+$$;
+revoke all on function public.is_app_owner() from public, anon;
+grant execute on function public.is_app_owner() to authenticated;
+
 alter table public.profiles enable row level security;
-create policy profiles_read_self_or_manager on public.profiles for select to authenticated
-  using (id = (select auth.uid()) or (select public.current_app_role()) = 'manager');
+create policy profiles_read_self_or_owner on public.profiles for select to authenticated
+  using (id = (select auth.uid()) or (select public.is_app_owner()));
 revoke all on public.profiles from public, anon, authenticated;
 grant select on public.profiles to authenticated;
 -- No direct client insert/update/delete on profiles; signup trigger and the manager-only RPC own this table.
@@ -70,10 +93,10 @@ returns void language plpgsql security definer
 set search_path = pg_catalog
 as $$
 begin
-  if coalesce((select public.current_app_role()),'') <> 'manager' then
-    raise exception 'manager role required';
+  if coalesce((select public.is_app_owner()),false) = false then
+    raise exception 'application owner required';
   end if;
-  if p_user_id is null or p_role not in ('manager','agent','monitor') or p_active is null then
+  if p_user_id is null or p_role is null or p_role not in ('manager','agent','monitor') or p_active is null then
     raise exception 'invalid access settings';
   end if;
   if p_user_id = (select auth.uid()) then
@@ -115,9 +138,4 @@ create policy taamir_secure_files_read on storage.objects for select to authenti
 create policy taamir_secure_files_upload on storage.objects for insert to authenticated
   with check (bucket_id='duac-files' and (select public.current_app_role()) in ('manager','agent'));
 
--- FINAL OWNER-ONLY BOOTSTRAP (run manually in Supabase SQL Editor after creating your account):
--- Replace the email below with your own login address in the dashboard only; do not commit it.
--- INSERT INTO public.profiles(id,email,role,active)
--- SELECT id,email,'manager',true FROM auth.users WHERE email='YOUR_LOGIN_EMAIL' AND email_confirmed_at IS NOT NULL
--- ON CONFLICT (id) DO UPDATE SET role='manager', active=true, updated_at=now();
--- Verify the resulting row before inviting anyone. New signups are otherwise disabled.
+-- FINAL OWNER-ONLY BOOTSTRAP: see owner-bootstrap.template.sql.

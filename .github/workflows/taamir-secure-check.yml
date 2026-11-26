@@ -4,11 +4,15 @@ on:
     paths:
       - 'docs/taamir-secure/**'
       - 'scripts/verify_taamir_secure.py'
+      - 'supabase/functions/admin-invite-member/**'
+      - 'docs/taamir-secure/RELEASE_NOTES.md'
       - '.github/workflows/taamir-secure-check.yml'
   pull_request:
     paths:
       - 'docs/taamir-secure/**'
       - 'scripts/verify_taamir_secure.py'
+      - 'supabase/functions/admin-invite-member/**'
+      - 'docs/taamir-secure/RELEASE_NOTES.md'
       - '.github/workflows/taamir-secure-check.yml'
   workflow_dispatch:
 jobs:
@@ -22,5 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: denoland/setup-deno@v2
       - name: Check secure role and storage guardrails
         run: python3 scripts/verify_taamir_secure.py
+      - name: Type-check owner-only invite function
+        run: deno check supabase/functions/admin-invite-member/index.ts

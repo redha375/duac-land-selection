@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DUAC Médéa — التعمير | v3.3 secure beta</title><link rel="icon" href="../assets/icon-512.png"><link rel="manifest" href="manifest.webmanifest">
+<title>DUAC Médéa — التعمير | v3.4 secure beta</title><link rel="icon" href="../assets/icon-512.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -32,7 +32,7 @@ table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ove
 .print{font-size:12px;color:#666}
 </style></head>
 <body>
-<header><img src="../assets/taamir-logo.jpg" alt="DUAC Médéa"><div><h1>DUAC — مديرية التعمير والهندسة المعمارية والبناء · المدية</h1><p>التعمير El Taamir — v3.3 · صلاحيات مؤمّنة عبر Supabase</p></div>
+<header><img src="../assets/taamir-logo.jpg" alt="DUAC Médéa"><div><h1>DUAC — مديرية التعمير والهندسة المعمارية والبناء · المدية</h1><p>التعمير El Taamir — v3.4 · إدارة مستخدمين للمالك وصلاحيات مؤمّنة</p></div>
 <div class="actions"><button onclick="exportJSON()">⬇ تصدير JSON</button><button class="sec" disabled title="غير متاح في النسخة المؤمنة">⬆ استيراد غير متاح</button><button class="sec" onclick="toggleSupabase()">⚙ Supabase</button><button class="sec" onclick="window.print()">🖨 طباعة</button></div></header>
 
 
@@ -42,11 +42,11 @@ table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ove
 <input id="authPass" type="password" autocomplete="current-password" placeholder="كلمة السر" style="max-width:180px;margin:0">
 <button onclick="supaLogin()">دخول</button><button class="sec" onclick="supaSignup()">طلب حساب</button>
 <button class="sec" onclick="logout()">خروج</button>
-<button class="sec hidden" id="membersButton" onclick="toggleMembers()">إدارة الصلاحيات</button>
+<button class="sec hidden" id="membersButton" onclick="toggleMembers()">إدارة المستخدمين</button>
 <span id="roleBadge" class="badge b-green">غير مسجل</span>
 </div>
-<div id="loginHint" class="card" style="margin:10px"><b>الصلاحيات تُفرض من Supabase، لا من هذا الجهاز:</b> المدير يدير السجلات والحسابات؛ العون يضيف ويعدّل ويرفع الملفات؛ المراقب يقرأ فقط. التسجيل الجديد يبقى موقوفاً حتى يمنحه المدير دوراً. عند عدم الاتصال لا يمكن تعديل سجلات الفريق.</div>
-<div id="membersPanel" class="card hidden" style="margin:10px"><h3>إدارة حسابات الفريق</h3><p class="mut">الحسابات الجديدة تبدأ موقوفة. اختر الدور والحالة ثم احفظ؛ يرفض الخادم أي تغيير لا يجريه مدير مخوّل.</p><button class="sec" onclick="refreshProfiles()">تحديث القائمة</button><div id="membersList" style="overflow:auto;margin-top:8px"></div></div>
+<div id="loginHint" class="card" style="margin:10px"><b>الصلاحيات تُفرض من Supabase، لا من هذا الجهاز:</b> مالك التطبيق وحده يدير حسابات الفريق؛ المدير يدير السجلات، والعون يضيف ويعدّل ويرفع الملفات، والمراقب يقرأ فقط. التسجيل الجديد يبقى موقوفاً حتى يفعّله المالك. عند عدم الاتصال لا يمكن تعديل سجلات الفريق.</div>
+<div id="membersPanel" class="card hidden" style="margin:10px"><h3>إدارة المستخدمين والصلاحيات</h3><p class="mut">إدارة الحسابات متاحة لمالك التطبيق فقط. أرسل دعوة بالبريد؛ يظهر الحساب موقوفاً، ثم اختر له الدور وفعّله بعد قبوله الدعوة. حسابات المدير الأخرى تدير السجلات فقط.</p><form id="inviteForm" class="full" onsubmit="inviteMember(event)" style="max-width:620px"><label class="full">البريد الإلكتروني للمستخدم<input id="inviteEmail" type="email" autocomplete="email" required placeholder="البريد الإلكتروني"></label><button class="green full" type="submit">إرسال دعوة إنشاء حساب</button><span id="inviteStatus" class="mut full" aria-live="polite"></span></form><button class="sec" onclick="refreshProfiles()">تحديث قائمة الحسابات</button><div id="membersList" style="overflow:auto;margin-top:8px"></div></div>
 <div id="supaBox" class="hidden" style="background:#fff3cd;padding:12px;margin:10px;border-radius:12px">
 <b>إعداد Supabase:</b> نفّذ ملف <b>supabase-secure.sql</b> على مشروع Supabase جديد أو راجعه مع مسؤول قاعدة البيانات قبل الترحيل. ثم أدخل Project URL و anon public key فقط؛ لا تضع service_role key هنا.
 <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="supaUrl" placeholder="https://xxxx.supabase.co"><input id="supaKey" placeholder="anon public key"><button onclick="saveSupa()">حفظ واتصال</button><span id="supaStatus" class="mut"></span></div>
@@ -111,33 +111,36 @@ table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ove
 <div class="search" style="margin-top:10px"><input id="regSearch" placeholder="بحث: رقم ملف، بلدية..." oninput="renderAll()"><select id="regLaw" onchange="renderAll()"><option value="">كل القوانين</option><option>15-08</option><option>22-55</option></select></div>
 <div id="regTable" style="overflow:auto;margin-top:8px"></div></section>
 </main>
-<footer style="text-align:center;padding:20px;color:#64748b">DUAC Médéa — التعمير v3.3 secure beta · تحقق دائماً من الوثائق الرسمية</footer>
+<footer style="text-align:center;padding:20px;color:#64748b">DUAC Médéa — التعمير v3.4 secure beta · تحقق دائماً من الوثائق الرسمية</footer>
 
 <script>
 const TABS=[['home','🏠 الرئيسية'],['parcels','🗺️ اختيار الأراضي'],['plans','📐 PDAU / POS'],['classified','🏭 المؤسسات المصنفة'],['childhood','👶 مؤسسات الطفولة'],['contracts','📄 عقود التعمير'],['regular','⚖️ تسوية 15-08 / 22-55']];
 document.getElementById('tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
 let DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};
 let supa=null, drawn=null, map=null, baseMap=null, baseSat=null, parcelsLayer=null;
-let CURRENT_ROLE=null, CURRENT_USER='غير مسجل', CURRENT_UID=null, MEMBER_ACTIVE=false;
+let CURRENT_ROLE=null, CURRENT_USER='غير مسجل', CURRENT_UID=null, MEMBER_ACTIVE=false, IS_APP_OWNER=false;
 function isSignedIn(){return !!(supa&&CURRENT_UID&&MEMBER_ACTIVE)}
 function canWrite(){return isSignedIn()&&(CURRENT_ROLE==='manager'||CURRENT_ROLE==='agent')}
 function canDelete(){return isSignedIn()&&CURRENT_ROLE==='manager'}
+function canManageUsers(){return isSignedIn()&&IS_APP_OWNER}
 function updateWho(){
  const labels={manager:'مدير',agent:'عون',monitor:'مراقب'};
  const state=!supa?'غير متصل بـ Supabase':!CURRENT_UID?'غير مسجل':!MEMBER_ACTIVE?'الحساب بانتظار تفعيل المدير':(labels[CURRENT_ROLE]||'دور غير معروف');
  document.getElementById('whoLabel').textContent='👤 '+CURRENT_USER+' — '+state;
  document.getElementById('roleBadge').textContent=state;
- document.getElementById('membersButton').classList.toggle('hidden',!canDelete());
+ document.getElementById('membersButton').classList.toggle('hidden',!canManageUsers());
+ if(!canManageUsers()) document.getElementById('membersPanel').classList.add('hidden');
  document.querySelectorAll('form button:not([type]), form button[type=submit]').forEach(b=>{b.disabled=!canWrite(); b.title=canWrite()?'':'سجّل الدخول بحساب فعّال للكتابة';});
  document.querySelectorAll('form input, form select, form textarea').forEach(el=>{el.disabled=!canWrite();});
 }
 function configureSupa(){const u=localStorage.getItem('supa_url'),k=localStorage.getItem('supa_key'); if(!u||!k){supa=null;updateWho();return false;} try{supa=window.supabase.createClient(u,k);supa.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>applySession(session),0)}); return true;}catch(e){supa=null;document.getElementById('supaStatus').textContent='تعذر إعداد الاتصال؛ راجع URL و anon key.';updateWho();return false;}}
 async function applySession(session){
  DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};renderAll();
- CURRENT_UID=session?.user?.id||null; CURRENT_USER=session?.user?.email||'غير مسجل';CURRENT_ROLE=null;MEMBER_ACTIVE=false;
+ CURRENT_UID=session?.user?.id||null; CURRENT_USER=session?.user?.email||'غير مسجل';CURRENT_ROLE=null;MEMBER_ACTIVE=false;IS_APP_OWNER=false;
  if(CURRENT_UID){const {data:prof,error}=await supa.from('profiles').select('role,active').eq('id',CURRENT_UID).maybeSingle();
    if(!error&&prof){CURRENT_ROLE=prof.role;MEMBER_ACTIVE=prof.active===true;}
    if(error) document.getElementById('supaStatus').textContent='تعذر قراءة الصلاحية من الخادم.';
+   if(!error&&MEMBER_ACTIVE&&CURRENT_ROLE==='manager'){const {data:owner,error:ownerError}=await supa.rpc('is_app_owner');IS_APP_OWNER=!ownerError&&owner===true;}
  }
  updateWho(); if(isSignedIn()) await loadFromSupa(); else renderAll();
 }
@@ -206,16 +209,17 @@ function exportJSON(){const b=new Blob([JSON.stringify(DB,null,2)],{type:'applic
 function importJSON(inp){alert('استيراد النسخ الاحتياطية غير متاح في النسخة المؤمنة لتجنب تجاوز الصلاحيات؛ استخدم سجلات الخادم.');inp.value='';}
 
 // Authenticated roles are fetched from the server. The browser never invents or persists an authorization role.
-async function supaLogin(){if(!supa&&!configureSupa())return alert('أدخل إعدادات Supabase أولاً.');const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPass').value;if(!email||!password)return alert('أدخل البريد وكلمة السر.');const {data,error}=await supa.auth.signInWithPassword({email,password});if(error)return alert('تعذر تسجيل الدخول: '+error.message);await applySession(data.session);document.getElementById('authPass').value='';if(!MEMBER_ACTIVE)alert('الحساب مسجل لكنه غير مفعّل بعد؛ اطلب من المدير تعيين دور لك.');}
+async function supaLogin(){if(!supa&&!configureSupa())return alert('أدخل إعدادات Supabase أولاً.');const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPass').value;if(!email||!password)return alert('أدخل البريد وكلمة السر.');const {data,error}=await supa.auth.signInWithPassword({email,password});if(error)return alert('تعذر تسجيل الدخول: '+error.message);await applySession(data.session);document.getElementById('authPass').value='';if(!MEMBER_ACTIVE)alert('الحساب مسجل لكنه غير مفعّل بعد؛ اطلب من مالك التطبيق تعيين دور لك.');}
 async function supaSignup(){if(!supa&&!configureSupa())return alert('أدخل إعدادات Supabase أولاً.');const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPass').value;if(!email||!password)return alert('أدخل البريد وكلمة سر قوية.');const {error}=await supa.auth.signUp({email,password});if(error)return alert('تعذر إنشاء الطلب: '+error.message);alert('تم إنشاء الحساب. يبقى موقوفاً حتى يفعّله مدير من إدارة الصلاحيات.');}
-async function logout(){if(supa)await supa.auth.signOut();CURRENT_UID=null;CURRENT_ROLE=null;CURRENT_USER='غير مسجل';MEMBER_ACTIVE=false;DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};updateWho();renderAll();}
+async function logout(){if(supa)await supa.auth.signOut();CURRENT_UID=null;CURRENT_ROLE=null;CURRENT_USER='غير مسجل';MEMBER_ACTIVE=false;IS_APP_OWNER=false;DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};updateWho();renderAll();}
 function toggleSupabase(){document.getElementById('supaBox').classList.toggle('hidden');const u=localStorage.getItem('supa_url'),k=localStorage.getItem('supa_key');if(u)document.getElementById('supaUrl').value=u;if(k)document.getElementById('supaKey').value=k;}
 function isPublicSupabaseKey(k){if(k.startsWith('sb_secret_'))return false;try{const payload=JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(payload.role==='service_role')return false;if(payload.role&&payload.role!=='anon')return false;return true;}catch{return k.startsWith('sb_publishable_');}}
 async function saveSupa(){const u=document.getElementById('supaUrl').value.trim(),k=document.getElementById('supaKey').value.trim();let parsed;try{parsed=new URL(u);}catch{return alert('أدخل Project URL صالحاً عبر HTTPS.');}if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.pathname!=='/'||!isPublicSupabaseKey(k))return alert('أدخل عنوان HTTPS ومفتاح anon/public فقط؛ مفاتيح service_role أو secret مرفوضة.');localStorage.setItem('supa_url',u);localStorage.setItem('supa_key',k);CURRENT_UID=null;CURRENT_ROLE=null;CURRENT_USER='غير مسجل';MEMBER_ACTIVE=false;configureSupa();document.getElementById('supaStatus').textContent='أُعدّ الاتصال. سجّل الدخول؛ لم تُرفع بيانات الجهاز.';const {data,error}=await supa.auth.getSession();if(error){document.getElementById('supaStatus').textContent='تعذر فتح الجلسة: '+error.message;return;}await applySession(data.session);}
 async function loadFromSupa(){if(!isSignedIn())return;DB={parcels:[],plans:[],classified:[],childhood:[],contracts:[],regular:[]};for(const tbl of ['parcels','plans','classified','childhood','contracts','regular']){const {data,error}=await supa.from(tbl).select('id,data');if(error){document.getElementById('supaStatus').textContent='رفض الخادم قراءة '+tbl+': '+error.message;return;}DB[tbl]=(data||[]).map(x=>x.data);}renderAll();document.getElementById('supaStatus').textContent='متصل؛ الصلاحية جرى جلبها من الخادم.';}
-function toggleMembers(){if(!canDelete())return;document.getElementById('membersPanel').classList.toggle('hidden');if(!document.getElementById('membersPanel').classList.contains('hidden'))refreshProfiles();}
-async function refreshProfiles(){if(!canDelete())return;const box=document.getElementById('membersList');box.textContent='جارٍ تحميل الحسابات…';const {data,error}=await supa.from('profiles').select('id,email,role,active').order('email');if(error){box.textContent='تعذر تحميل القائمة: '+error.message;return;}if(!data?.length){box.textContent='لا توجد حسابات.';return;}box.innerHTML='<table><tr><th>الحساب</th><th>الدور</th><th>الحالة</th><th>الإجراء</th></tr>'+data.map(m=>`<tr><td>${esc(m.email||'')}</td><td><select id="role-${m.id}"><option value="monitor" ${m.role==='monitor'?'selected':''}>مراقب</option><option value="agent" ${m.role==='agent'?'selected':''}>عون</option><option value="manager" ${m.role==='manager'?'selected':''}>مدير</option></select></td><td><select id="active-${m.id}"><option value="false" ${m.active?'':'selected'}>موقوف</option><option value="true" ${m.active?'selected':''}>فعّال</option></select></td><td><button onclick="changeAccess('${m.id}')">حفظ</button></td></tr>`).join('')+'</table>';}
-async function changeAccess(id){if(!canDelete())return alert('إدارة الصلاحيات للمدير الفعّال فقط.');const role=document.getElementById('role-'+id).value,active=document.getElementById('active-'+id).value==='true';const {error}=await supa.rpc('set_member_access',{p_user_id:id,p_role:role,p_active:active});if(error){alert('رفض الخادم التغيير: '+error.message);return;}alert('تم تحديث الصلاحية من الخادم.');await refreshProfiles();}
+function toggleMembers(){if(!canManageUsers())return;document.getElementById('membersPanel').classList.toggle('hidden');if(!document.getElementById('membersPanel').classList.contains('hidden'))refreshProfiles();}
+async function refreshProfiles(){if(!canManageUsers())return;const box=document.getElementById('membersList');box.textContent='جارٍ تحميل الحسابات…';const {data,error}=await supa.from('profiles').select('id,email,role,active').order('email');if(error){box.textContent='تعذر تحميل القائمة: '+error.message;return;}if(!data?.length){box.textContent='لا توجد حسابات.';return;}box.innerHTML='<table><tr><th>الحساب</th><th>الدور</th><th>الحالة</th><th>الإجراء</th></tr>'+data.map(m=>`<tr><td>${esc(m.email||'')}</td><td><select id="role-${m.id}"><option value="monitor" ${m.role==='monitor'?'selected':''}>مراقب</option><option value="agent" ${m.role==='agent'?'selected':''}>عون</option><option value="manager" ${m.role==='manager'?'selected':''}>مدير</option></select></td><td><select id="active-${m.id}"><option value="false" ${m.active?'':'selected'}>موقوف</option><option value="true" ${m.active?'selected':''}>فعّال</option></select></td><td><button onclick="changeAccess('${m.id}')">حفظ</button></td></tr>`).join('')+'</table>';}
+async function changeAccess(id){if(!canManageUsers())return alert('إدارة المستخدمين للمالك الفعّال فقط.');const role=document.getElementById('role-'+id).value,active=document.getElementById('active-'+id).value==='true';const {error}=await supa.rpc('set_member_access',{p_user_id:id,p_role:role,p_active:active});if(error){alert('رفض الخادم التغيير: '+error.message);return;}alert('تم تحديث الصلاحية من الخادم.');await refreshProfiles();}
+async function inviteMember(event){event?.preventDefault();if(!canManageUsers())return alert('إرسال الدعوات للمالك الفعّال فقط.');const input=document.getElementById('inviteEmail'),status=document.getElementById('inviteStatus'),email=input.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254){status.textContent='أدخل بريداً إلكترونياً صالحاً.';return;}status.textContent='جارٍ إرسال الدعوة…';try{const {data,error}=await supa.functions.invoke('admin-invite-member',{body:{email}});if(error||!data?.invited){status.textContent='تعذر إرسال الدعوة. تحقق من نشر وظيفة الدعوات وإعداد البريد في Supabase.';return;}input.value='';status.textContent='أُرسلت الدعوة. يظهر الحساب في القائمة موقوفاً؛ فعّله بعد قبوله الدعوة.';}catch{status.textContent='تعذر الاتصال بوظيفة الدعوات في Supabase.';}}
 async function openStoredFile(path){if(!isSignedIn())return alert('الملفات لا تُفتح دون جلسة فعّالة.');if(!/^(contracts|regular)\/[A-Za-z0-9._-]+$/.test(path))return alert('مسار الملف غير صالح.');const {data,error}=await supa.storage.from('duac-files').createSignedUrl(path,300);if(error)return alert('تعذر فتح الملف: '+error.message);window.open(data.signedUrl,'_blank','noopener');}
 async function uploadPDF(file,prefix){if(!file)return null;if(!canWrite())return null;if(file.type!=='application/pdf'||file.size>15*1024*1024){alert('اختر PDF لا يتجاوز 15 MB.');return null;}const path=prefix+'/'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const {error}=await supa.storage.from('duac-files').upload(path,file,{upsert:false,contentType:'application/pdf'});if(error){alert('تعذر رفع PDF: '+error.message);return null;}return path;}
 function addProfileFileButton(raw){const path=String(raw||'').split(' | ').find(x=>/^(contracts|regular)\/[A-Za-z0-9._-]+$/.test(x));return path?{secureButton:`<button class="sec" onclick="openStoredFile('${path}')">فتح PDF مؤقتاً</button>`}:String(raw||'').slice(0,60);}
